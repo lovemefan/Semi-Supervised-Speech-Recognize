@@ -3,10 +3,12 @@
 # @Author : lovemefan
 # @Email : lovemefan@outlook.com
 # @File : convert_pinyin.py
+import argparse
 import json
 import struct
 
 from pypinyin import lazy_pinyin, Style
+from tqdm import tqdm
 
 
 def get_audio_info(file_path):
@@ -52,12 +54,13 @@ def get_audio_info(file_path):
         return bitspersample, samplerate, numchannels, duration
 
 
-def convert_tsv(tsv_path: str, tsv_output: str):
+def convert_tsv_to_json(tsv_path: str, tsv_output: str):
     """convert tsv file that transform chinese into phoneme
     """
     datas = []
     with open(tsv_path, 'r', encoding='utf-8') as tsv_file:
-        for line in tsv_file:
+        lines = [line for line in tsv_file]
+        for line in tqdm(lines):
             path, text = line.split('\t')
             phoneme = ' '.join([i for i in lazy_pinyin(text, errors='ignore', style=Style.TONE3)])
             bits, sample_rate, channel, duration = get_audio_info(path)
@@ -76,4 +79,8 @@ def convert_tsv(tsv_path: str, tsv_output: str):
 
 if __name__ == '__main__':
 
-    print(get_audio_info('/root/dataset/speechDataset/aishell-1/data_aishell/converted_wav/test/BAC009S0764W0121.wav'))
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--tsv", required=True, help="input you tsv file")
+    parser.add_argument("--tsv_output", required=True, help="input the dir path of  file output")
+    args = parser.parse_args()
+    convert_tsv_to_json(args.tsv,  args.tsv_output)
