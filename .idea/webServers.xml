@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="ee545141-a8fb-4ae5-9295-d17953c5547c" name="lab_16gpu">
+        <fileTransfer rootFolder="/root/data" accessType="SFTP" host="222.197.219.19" port="25095" sshConfigId="51ae9551-37c3-433b-be91-e9e9ce77019b" sshConfig="root@222.197.219.19:25095 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>
