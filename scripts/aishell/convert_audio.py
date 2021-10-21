@@ -28,9 +28,9 @@ def convert(tsv_path: str, audio_output_dir: str, tsv_ouput_dir: str):
     :param tsv_path:
     :return:
     """
-    target_tsv_path = os.path.join(tsv_ouput_dir,  f"convert_{os.path.basename(tsv_path)}")
+    target_tsv_path = os.path.join(tsv_ouput_dir, f"{os.path.basename(tsv_path).replace('.tsv', '')}.json")
     with open(tsv_path, 'r', encoding='utf-8') as tsv_file, \
-         open(target_tsv_path, 'w', encoding='utf-8') as target_tsv:
+            open(target_tsv_path, 'w', encoding='utf-8') as target_tsv:
 
         for line in tqdm(tsv_file):
             try:
@@ -44,7 +44,6 @@ def convert(tsv_path: str, audio_output_dir: str, tsv_ouput_dir: str):
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--tsv", required=True, help="input you tsv file")
     parser.add_argument("--audio_output", required=True, help="input the dir path of  file output")
