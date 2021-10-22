@@ -26,7 +26,7 @@ def generate_vocabulary(tsv_path: str, vocab_path: str):
 
     with open(vocab_path, 'w', encoding='utf-8') as vocab_file:
         for item, value in sorted(vocab.items(), key=lambda x: x[1], reverse=True):
-            vocab_file.write(f"{item}\t{value}\n")
+            vocab_file.write(f"{item} {value}\n")
     print(f"{vocab_path} created.")
 
 
