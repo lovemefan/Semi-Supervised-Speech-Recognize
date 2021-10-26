@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="root@222.197.219.19:25095" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="zlf@42.194.132.156:22" remoteFilesAllowedToDisappearOnAutoupload="false">
     <serverData>
       <paths name="lab_16gpu">
         <serverdata>
@@ -41,6 +41,20 @@
         <serverdata>
           <mappings>
             <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="zlf@42.194.132.156:22">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/zlf/Semi-Supervised-Speech-Recognize" local="$PROJECT_DIR$" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="无监督赛道">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/zlf/Semi-Supervised-Speech-Recognize" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

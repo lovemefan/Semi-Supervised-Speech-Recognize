@@ -9,6 +9,13 @@
           </advancedOptions>
         </fileTransfer>
       </webServer>
+      <webServer id="dc2cda4b-a7a5-4cc0-91cf-00242332d02e" name="无监督赛道">
+        <fileTransfer rootFolder="/home/zlf" accessType="SFTP" host="42.194.132.156" port="22" sshConfigId="7da01ec6-c607-47ed-9a00-a38f805c4d9d" sshConfig="zlf@42.194.132.156:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
     </option>
   </component>
 </project>
