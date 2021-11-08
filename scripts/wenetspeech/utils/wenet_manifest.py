@@ -3,6 +3,7 @@
 # @Author : lovemefan
 # @Email : lovemefan@outlook.com
 # @File : unispeech_manifest.py
+import argparse
 import json
 import os
 import jieba
@@ -43,7 +44,7 @@ def generate_manifests(scp_file, text_file, output_file, subset='train'):
         files[name]['sentence'] = text
         seg_list = jieba.cut(text, use_paddle=True)
         cutted = '|'.join([i for i in seg_list if i != '' and i != ' '])
-        files[name]['word'] = cutted
+        files[name]['word'] = cutted + '|'
         files[name]['letter'] = ' | '.join([' '.join(list(item)) for item in cutted.split('|')]) + " |"
         files[name]['phoneme'] = ' | '.join(convert_into_phoneme(item) for item in cutted.split('|')) + " |"
 
@@ -53,9 +54,10 @@ def generate_manifests(scp_file, text_file, output_file, subset='train'):
     if not os.path.exists(file_path):
         with open(file_path, 'w', encoding='utf-8') as tsv:
             lines.clear()
+            tsv.write(f"path\tnframes\n")
             for key, value in tqdm(files.items()):
                 nframes = sf.info(value['path']).frames
-                lines.append(f"{value['path']} {nframes}")
+                lines.append(f"{value['path']}\t{nframes}")
             tsv.write('\n'.join(lines))
 
     file_path = os.path.join(output_file, f'{subset}.wrd')
@@ -96,11 +98,13 @@ def convert_into_phoneme(text):
     return ' '.join(phoneme)
 
 
-
-
-
 if __name__ == '__main__':
-    generate_manifests('/root/dataset/speechDataset/wenetspeech-s/data_s/train_s/wav.scp',
-                       '/root/dataset/speechDataset/wenetspeech-s/data_s/train_s/text',
-                       '/root/dataset/speechDataset/wenetspeech-s/wav2vec_manifests',
-                       'train')
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--scp", required=True, help="input you scp file")
+    parser.add_argument("--text", required=True, help="input the path of text output")
+    parser.add_argument("--output_dir", required=True, help="input the path of dir file output")
+    parser.add_argument("--subset",  default="test", help="train, dev, test")
+    args = parser.parse_args()
+
+    generate_manifests(args.scp, args.text, args.output_dir, args.subset)
