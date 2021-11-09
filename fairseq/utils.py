@@ -492,13 +492,13 @@ def import_user_module(args):
                 if os.path.exists(tasks_path):
                     from fairseq.tasks import import_tasks
 
-                    import_tasks(tasks_path, f"{module_name}.tasks")
+                    # import_tasks(tasks_path, f"{module_name}.tasks")
 
                 models_path = os.path.join(module_path, "models")
                 if os.path.exists(models_path):
                     from fairseq.models import import_models
 
-                    import_models(models_path, f"{module_name}.models")
+                    # import_models(models_path, f"{module_name}.models")
             else:
                 raise ImportError(
                     "Failed to import --user-dir={} because the corresponding module name "
@@ -561,6 +561,8 @@ def get_activation_fn(activation: str) -> Callable:
         return torch.tanh
     elif activation == "linear":
         return lambda x: x
+    elif activation == 'swish':
+        return lambda x: x * torch.sigmoid(x)
     else:
         raise RuntimeError("--activation-fn {} not supported".format(activation))
 
@@ -573,6 +575,7 @@ def get_available_activation_fns() -> List:
         "gelu_accurate",
         "tanh",
         "linear",
+        "swish",
     ]
 
 
