@@ -10,6 +10,7 @@ from .base_layer import BaseLayer
 from .beamable_mm import BeamableMM
 from .character_token_embedder import CharacterTokenEmbedder
 from .conv_tbc import ConvTBC
+from .convolution import ConvolutionModule
 from .cross_entropy import cross_entropy
 from .downsampled_multihead_attention import DownsampledMultiHeadAttention
 from .dynamic_convolution import DynamicConv, DynamicConv1dTBC
@@ -29,6 +30,8 @@ from .location_attention import LocationAttention
 from .lstm_cell_with_zoneout import LSTMCellWithZoneOut
 from .multihead_attention import MultiheadAttention
 from .positional_embedding import PositionalEmbedding
+from .rel_position_multihead_attention import RelPositionMultiheadAttention
+from .relative_multihead_attention import RelativeMultiheadAttention
 from .same_pad import SamePad
 from .scalar_bias import ScalarBias
 from .sinusoidal_positional_embedding import SinusoidalPositionalEmbedding
@@ -38,6 +41,7 @@ from .transpose_last import TransposeLast
 from .unfold import unfold1d
 from .transformer_layer import TransformerDecoderLayer, TransformerEncoderLayer
 from .vggblock import VGGBlock
+from .ConformerEncoderLayer import ConformerEncoderLayer
 
 __all__ = [
     "AdaptiveInput",
@@ -79,4 +83,8 @@ __all__ = [
     "TransposeLast",
     "VGGBlock",
     "unfold1d",
+    "RelPositionMultiheadAttention",
+    "RelativeMultiheadAttention",
+    "ConvolutionModule",
+    "ConformerEncoderLayer"
 ]
