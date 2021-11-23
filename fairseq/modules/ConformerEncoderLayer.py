@@ -44,7 +44,7 @@ class ConformerEncoderLayer(nn.Module):
             args.dropout, module_name=self.__class__.__name__
         )
         self.activation_fn = utils.get_activation_fn(
-            activation=getattr(args, 'activation_fn', 'relu') or "relu"
+            activation=getattr(args, 'activation_fn', 'swish') or "swish"
         )
         activation_dropout_p = getattr(args, "activation_dropout", 0) or 0
         if activation_dropout_p == 0:
@@ -193,7 +193,7 @@ class ConformerEncoderLayer(nn.Module):
             if self.normalize_before:
                 x = self.macaron_norm(x)
             x = self.macaron_fc2(self.activation_dropout_module(self.activation_fn(self.macaron_fc1(x))))
-            x = residual + self.ffn_scale * self.dropout_module(x)
+            x = self.residual_connection(residual, self.ffn_scale * self.dropout_module(x))
             if not self.normalize_before:
                 x = self.macaron_norm(x)
 
@@ -220,8 +220,7 @@ class ConformerEncoderLayer(nn.Module):
                 need_weights=False,
                 attn_mask=attn_mask,
             )
-        x = self.dropout_module(x)
-        x = self.residual_connection(x, residual)
+        x = self.residual_connection(self.dropout_module(x), residual)
         if not self.normalize_before:
             x = self.self_attn_layer_norm(x)
 
@@ -231,7 +230,7 @@ class ConformerEncoderLayer(nn.Module):
             residual = x
             if self.normalize_before:
                 x = self.conv_norm(x)
-            x = residual + self.dropout_module(self.conv_module(x, encoder_padding_mask))
+            x = self.residual_connection(residual, self.dropout_module(self.conv_module(x, encoder_padding_mask)))
             if not self.normalize_before:
                 x = self.conv_norm(x)
             x = x.transpose(0, 1)

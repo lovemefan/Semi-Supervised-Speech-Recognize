@@ -16,7 +16,7 @@ class ConvolutionModule(nn.Module):
     def __init__(self,
                  channels: int,
                  kernel_size: int = 15,
-                 activation: nn.Module = nn.ReLU(),
+                 activation: nn.Module = nn.GLU(),
                  norm: str = "batch_norm",
                  causal: bool = False,
                  bias: bool = True):
