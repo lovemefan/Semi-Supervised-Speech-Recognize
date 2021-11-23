@@ -28,7 +28,7 @@ def generate_manifests(scp_file, text_file, output_file, subset='train'):
     print(f"read file name and path")
     for line in tqdm(lines):
         name, path = line.split(' ')
-        files[name] = {'path': path.strip()}
+        files[name] = {'path': path.strip().replace('/home/speech/Audio/WenetSpeech/wenetspeech/audio_seg_s', os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(scp_file))), 'audio_seg_s'))}
 
     print(f"reading {text_file} file...")
     lines.clear()

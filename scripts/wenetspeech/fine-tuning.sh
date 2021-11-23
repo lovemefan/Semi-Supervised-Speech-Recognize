@@ -6,6 +6,6 @@ fairseq-hydra-train \
     checkpoint.save_dir=/root/data/Semi-Supervised-Speech-Recognize/chechpint/wenetspeech \
     model.w2v_path=/root/dataset/speechDataset/wenetspeech-s/wenetspeech_wav2vec2_model/wenetspeech_wav2vec2_model/checkpoint_best.pt \
     dataset.num_workers=2 \
-    dataset.max_tokens=2800000 \
+    dataset.max_tokens=1200000 \
     --config-dir   /root/dataset/speechDataset/wenetspeech-s/wenetspeech_wav2vec2_model/wenetspeech_wav2vec2_model \
     --config-name  wenet_test

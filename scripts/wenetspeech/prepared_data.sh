@@ -1,9 +1,10 @@
-train_scp='/root/dataset/speechDataset/wenetspeech-s/data_s/train_s/wav.scp'
-train_text='/root/dataset/speechDataset/wenetspeech-s/data_s/train_s/text'
-test_scp='/root/dataset/speechDataset/wenetspeech-s/data_s/test_meeting/wav.scp'
-test_text='/root/dataset/speechDataset/wenetspeech-s/data_s/test_meeting/text'
-dev_scp='/root/dataset/speechDataset/wenetspeech-s/data_s/test_net/wav.scp'
-dev_text='/root/dataset/speechDataset/wenetspeech-s/data_s/test_net/text'
+wenetspeech_root='/root/dataset/speechDataset/wenetspeech-s/data_s'
+train_scp=$wenetspeech_root/train_s/wav.scp
+train_text=$wenetspeech_root/train_s/text
+test_scp=$wenetspeech_root/test_meeting/wav.scp
+test_text=$wenetspeech_root/test_meeting/text
+dev_scp=$wenetspeech_root/test_net/wav.scp
+dev_text=$wenetspeech_root/test_net/text
 output_dir='/root/dataset/speechDataset/wenetspeech-s/wav2vec_manifests'
 labels='phe'
 # generate train subset manifest
