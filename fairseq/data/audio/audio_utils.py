@@ -167,6 +167,18 @@ def get_fbank(path_or_fp: Union[str, BinaryIO], n_bins=80) -> np.ndarray:
     return features
 
 
+def get_mel_spectrogram(waveform: np.ndarray, sample_rate: int, n_mel=80):
+    """Get mel-spectrogram  features via librosa."""
+    try:
+        import librosa
+    except ImportError:
+        raise ImportError("Please install librosa: pip install librosa")
+
+    features = librosa.feature.melspectrogram(y=waveform, sr=sample_rate, n_mels=n_mel)
+    return features
+
+
+
 def is_npy_data(data: bytes) -> bool:
     return data[0] == 147 and data[1] == 78
 
