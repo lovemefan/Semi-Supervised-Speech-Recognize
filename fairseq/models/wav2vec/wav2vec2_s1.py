@@ -31,7 +31,7 @@ from fairseq.utils import buffered_arange
 
 
 @register_model("wav2vec2_s1")
-class Wav2Vec2Model(BaseFairseqModel):
+class Wav2Vec2ModelS1(BaseFairseqModel):
     @staticmethod
     def add_args(parser):
         """Add model-specific arguments to the parser."""

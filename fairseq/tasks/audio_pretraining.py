@@ -19,7 +19,8 @@ from fairseq.dataclass import FairseqDataclass, ChoiceEnum
 from fairseq.data.text_compressor import TextCompressionLevel
 
 from . import FairseqTask, register_task
-
+from ..data.audio.data_cfg import S2TDataConfig
+from ..data.audio.speech_to_text_dataset import SpeechToTextDatasetCreator
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +61,7 @@ class AudioPretrainingConfig(FairseqDataclass):
             "See examples/wav2vec/scripts/binarize_manifest.sh"
         },
     )
+
     sample_rate: int = field(
         default=16_000,
         metadata={
@@ -72,6 +74,9 @@ class AudioPretrainingConfig(FairseqDataclass):
     )
     enable_padding: bool = field(
         default=False, metadata={"help": "pad shorter samples instead of cropping"}
+    )
+    is_mel: bool = field(
+        default=True, metadata={"help": "output mel spectrogram"}
     )
     max_sample_size: Optional[int] = field(
         default=None, metadata={"help": "max sample size to crop to for batching"}
@@ -134,7 +139,7 @@ class AudioPretrainingTask(FairseqTask):
         else:
             return {}
 
-    def load_dataset(self, split: str, task_cfg: FairseqDataclass = None, **kwargs):
+    def load_dataset(self, split: str, epoch=1, task_cfg: FairseqDataclass = None, **kwargs):
         data_path = self.cfg.data
         task_cfg = task_cfg or self.cfg
 
@@ -161,9 +166,10 @@ class AudioPretrainingTask(FairseqTask):
             )
         else:
             manifest_path = os.path.join(data_path, "{}.tsv".format(split))
-
+            is_mel = getattr(task_cfg, "is_mel", False)
             self.datasets[split] = FileAudioDataset(
                 manifest_path=manifest_path,
+                is_mel=is_mel,
                 sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
                 max_sample_size=self.cfg.max_sample_size,
                 min_sample_size=self.cfg.min_sample_size,

@@ -1,27 +1,31 @@
 import logging
+from typing import List
 
 import torch
 import torch.nn as nn
 
 from fairseq import checkpoint_utils
+from fairseq.data.audio.audio_utils import get_mel_spectrogram
+from fairseq.data.audio.speech_to_text_dataset import get_features_or_waveform
 from fairseq.data.data_utils import lengths_to_padding_mask
 from fairseq.models import (
     register_model,
     register_model_architecture, BaseFairseqModel,
 )
-from fairseq.models.speech_to_text import S2TTransformerModel, S2TTransformerEncoder
+from fairseq.models.speech_to_text import S2TTransformerModel, S2TTransformerEncoder, Conv1dSubsampler
 from fairseq.models.wav2vec import ConvFeatureExtractionModel, Wav2Vec2Model
 from fairseq.modules import (
     GradMultiply,
-    ConformerEncoderLayer,
+    ConformerEncoderLayer, LayerNorm, GumbelVectorQuantizer, FairseqDropout, PositionalEmbedding,
 )
+from fairseq.modules.layer_history import CreateLayerHistory
 from fairseq.utils import is_xla_tensor
 
 logger = logging.getLogger(__name__)
 
 
 @register_model("conformer_based_wav2vec2")
-class ConformerBasedWav2vec2Model(Wav2Vec2Model):
+class ConformerBasedWav2vec2Model(BaseFairseqModel):
     """Adapted Transformer model (https://arxiv.org/abs/1706.03762) for
     speech-to-text tasks. The Transformer encoder/decoder remains the same.
     A trainable input subsampler is prepended to the Transformer encoder to
@@ -29,7 +33,7 @@ class ConformerBasedWav2vec2Model(Wav2Vec2Model):
     sequence for computational efficiency."""
 
     def __init__(self, cfg):
-        super().__init__(cfg)
+        super().__init__()
         self.cfg = cfg
 
         feature_enc_layers = eval(cfg.conv_feature_layers)
@@ -87,7 +91,6 @@ class ConformerBasedWav2vec2Model(Wav2Vec2Model):
 
     @classmethod
     def build_model(cls, cfg, task=None, embed_tokens=None):
-
         encoder = ConformerWav2vec2Encoder(cfg)
         if getattr(cfg, "load_pretrained_from", None):
             encoder = checkpoint_utils.load_pretrained_component_from_model(
@@ -100,76 +103,133 @@ class ConformerBasedWav2vec2Model(Wav2Vec2Model):
         return encoder
 
 
-class ConformerWav2vec2Encoder(BaseFairseqModel):
+class Conv2dSubsampler(nn.Module):
+    """Convolutional subsampler: a stack of 1D convolution (along temporal
+    dimension) followed by non-linear activation via gated linear units
+    (https://arxiv.org/abs/1911.08460)
+
+    Args:
+        in_channels (int): the number of input channels
+        mid_channels (int): the number of intermediate channels
+        out_channels (int): the number of output channels
+        kernel_sizes (List[int]): the kernel size for each convolutional layer
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        mid_channels: int,
+        out_channels: int,
+        kernel_sizes: List[int] = (3, 3),
+    ):
+        super(Conv2dSubsampler, self).__init__()
+        self.n_layers = len(kernel_sizes)
+        self.conv_layers = nn.ModuleList(
+            nn.Conv2d(
+                in_channels if i == 0 else mid_channels // 2,
+                mid_channels if i < self.n_layers - 1 else out_channels * 2,
+                k,
+                stride=2,
+                padding=k // 2,
+            )
+            for i, k in enumerate(kernel_sizes)
+        )
+
+    def get_out_seq_lens_tensor(self, in_seq_lens_tensor):
+        out = in_seq_lens_tensor.clone()
+        for _ in range(self.n_layers):
+            out = ((out.float() - 1) / 2 + 1).floor().long()
+        return out
+
+    def forward(self, src_tokens):
+        # src_tokens  B x H x W
+        x = src_tokens.unsqueeze(1).contiguous()
+        for conv in self.conv_layers:
+            x = conv(x)
+            x = nn.functional.glu(x, dim=1)
+        return x
+
+
+class ConformerWav2vec2Encoder(Wav2Vec2Model):
     """Speech-to-text Conformer encoder that consists of input subsampler and
     Transformer encoder."""
 
     def __init__(self, cfg):
-        super().__init__()
-
+        super().__init__(cfg)
+        del self.encoder
+        # embed_dim for conformerEncoder layer embedding dim
         self.layers = nn.ModuleList(
             [ConformerEncoderLayer(cfg) for _ in range(cfg.encoder_layers)]
         )
-
-        feature_enc_layers = eval(cfg.conv_feature_layers)
-        self.embed = feature_enc_layers[-1][0]
-        self.subsample = ConvFeatureExtractionModel(
-            conv_layers=feature_enc_layers,
-            dropout=0.0,
-            mode=cfg.extractor_mode,
-            conv_bias=cfg.conv_bias,
+        self.padding_idx = 1
+        self.is_mel = getattr(cfg, "is_mel_spectrograms", False)
+        if self.is_mel:
+            self.subsample = Conv2dSubsampler(
+                cfg.input_feat_per_channel,
+                cfg.conv_channels,
+                cfg.encoder_embed_dim,
+                [int(k) for k in cfg.conv_kernel_sizes.split(",")],
+            )
+            self.linear = nn.Linear(cfg.encoder_embed_dim, cfg.encoder_embed_dim)
+        else:
+            self.subsample = Conv1dSubsampler(
+                cfg.input_feat_per_channel,
+                cfg.conv_channels,
+                cfg.encoder_embed_dim,
+                [int(k) for k in cfg.conv_kernel_sizes.split(",")],
+            )
+        self.attn_type = getattr(cfg, "encoder_attention_type", "selfattn")
+        self.padding_idx = 1
+        self.embed_positions = PositionalEmbedding(
+            cfg.max_source_positions, cfg.encoder_embed_dim, self.padding_idx, pos_emb_type=self.attn_type
+        )
+        if getattr(cfg, "use_enc_dlcl", False):
+            self.history = CreateLayerHistory(cfg, is_encoder=True)
+        else:
+            self.history = None
+        self.softmax = nn.Softmax(dim=-1)
+        self.dropout_module = FairseqDropout(
+            p=cfg.dropout, module_name=self.__class__.__name__
         )
 
-        self.feature_grad_mult = cfg.feature_grad_mult
+    def get_interactive_tokens_and_lengths(self, lines):
+        n_frames = [p.shape[0] for p in lines]
+        return lines, n_frames
 
     def forward(self,
-        source,
-        padding_mask=None,
-        mask=True,
-        features_only=False,
-        layer=None,
-        mask_indices=None,
-        mask_channel_indices=None,
-        padding_count=None,
-    ):
+                source,
+                src_lengths,
+                mel_spectrograms,
+                padding_mask=None,
+                mask=True,
+                features_only=False,
+                layer=None,
+                mask_indices=None,
+                mask_channel_indices=None,
+                padding_count=None,
+                ):
 
         if self.history is not None:
             self.history.clean()
 
+        # todo spec  mel 899
         if self.feature_grad_mult > 0:
-            features = self.subsample(source)
+            features = self.subsample(mel_spectrograms if self.is_mel else source)
             if self.feature_grad_mult != 1.0:
                 features = GradMultiply.apply(features, self.feature_grad_mult)
         else:
             with torch.no_grad():
-                features = self.subsample(source)
+                features = self.subsample(mel_spectrograms if self.is_mel else source)
 
         features_pen = features.float().pow(2).mean()
 
-        features = features.transpose(1, 2)
+        if self.is_mel:
+            # B x T x C
+            features = self.linear(features.reshape(-1, features.shape[0], self.cfg.encoder_embed_dim))
+
+        features = features.transpose(0, 1)
         features = self.layer_norm(features)
         unmasked_features = features.clone()
-
-        if padding_mask is not None and padding_mask.any():
-            input_lengths = (1 - padding_mask.long()).sum(-1)
-            # apply conv formula to get real output_lengths
-            output_lengths = self._get_feat_extract_output_lengths(input_lengths)
-
-            padding_mask = torch.zeros(
-                features.shape[:2], dtype=features.dtype, device=features.device
-            )
-
-            # these two operations makes sure that all values
-            # before the output lengths indices are attended to
-            padding_mask[
-                (
-                    torch.arange(padding_mask.shape[0], device=padding_mask.device),
-                    output_lengths - 1,
-                )
-            ] = 1
-            padding_mask = (1 - padding_mask.flip([-1]).cumsum(-1).flip([-1])).bool()
-        else:
-            padding_mask = None
 
         if self.post_extract_proj is not None:
             features = self.post_extract_proj(features)
@@ -212,11 +272,13 @@ class ConformerWav2vec2Encoder(BaseFairseqModel):
             mask_indices = None
 
         x = self.dropout_module(x)
-
-
-        positions = self.embed_positions(padding_mask).transpose(0, 1)
+        input_lengths = torch.tensor([s.size(0) for s in features]).to(x.device)
+        encoder_padding_mask = lengths_to_padding_mask(input_lengths)
+        positions = self.embed_positions(encoder_padding_mask)
+        encoder_padding_mask = encoder_padding_mask.transpose(0, 1)
         if self.attn_type != "rel_selfattn":
             x += positions
+
         x = self.dropout_module(x)
         positions = self.dropout_module(positions)
 
@@ -227,7 +289,7 @@ class ConformerWav2vec2Encoder(BaseFairseqModel):
         for layer in self.layers:
             if self.history is not None:
                 x = self.history.pop()
-            x = layer(x, padding_mask, pos_emb=positions)
+            x = layer(x, encoder_padding_mask, pos_emb=positions)
             if self.history is not None:
                 self.history.add(x)
 
@@ -240,7 +302,7 @@ class ConformerWav2vec2Encoder(BaseFairseqModel):
         if features_only:
             return {
                 "x": x,
-                "padding_mask": padding_mask,
+                "padding_mask": encoder_padding_mask,
                 "features": unmasked_features,
             }
         if self.quantizer:
@@ -324,17 +386,20 @@ class ConformerWav2vec2Encoder(BaseFairseqModel):
         return result
 
 
-
 @register_model_architecture(model_name="conformer_based_wav2vec2", arch_name="conformer_based_wav2vec2")
 def base_architecture(args):
     # Convolutional subsampler
     args.conv_kernel_sizes = getattr(args, "conv_kernel_sizes", "5,5")
     args.conv_channels = getattr(args, "conv_channels", 1024)
     # Conformer
+    args.input_feat_per_channel = getattr(args, "input_feat_per_channel", 80)
     args.macaron_style = getattr(args, "macaron_style", True)
     args.use_cnn_module = getattr(args, "use_cnn_module", True)
     args.cnn_module_kernel = getattr(args, "cnn_module_kernel", 31)
-
+    # dim, k, stride
+    args.conv_feature_layers = getattr(args, "conv_feature_layers",
+                                       '[(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512,2,2)] + [(512,2,2)]')
+    args.max_source_positions = getattr(args, "encoder_embed_dim", 3000)
     args.encoder_embed_dim = getattr(args, "encoder_embed_dim", 512)
     args.encoder_ffn_embed_dim = getattr(args, "encoder_ffn_embed_dim", 2048)
     args.encoder_layers = getattr(args, "encoder_layers", 12)

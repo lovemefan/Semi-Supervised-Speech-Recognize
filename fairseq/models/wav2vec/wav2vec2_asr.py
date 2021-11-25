@@ -209,6 +209,9 @@ class Wav2VecCtc(BaseFairseqModel):
         x = self.w2v_encoder(**kwargs)
         return x
 
+    def remove_pretraining_modules(self):
+        pass
+
 
 @dataclass
 class Wav2Vec2Seq2SeqConfig(Wav2Vec2AsrConfig):
@@ -339,6 +342,7 @@ class Wav2VecEncoder(FairseqEncoder):
                 w2v_args = convert_namespace_to_omegaconf(state["args"])
             w2v_args.criterion = None
             w2v_args.lr_scheduler = None
+            # w2v_args.checkpoint =
             cfg.w2v_args = w2v_args
         else:
             state = None
