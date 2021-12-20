@@ -12,13 +12,14 @@ task:
   _name: audio_pretraining
   data: ???
   max_sample_size: 320000
-  min_sample_size: 32000
+  min_sample_size: 12000
   normalize: true
 
 dataset:
-  batch_size: 1
+  batch_size: 4
   num_workers: 6
   max_tokens: 800000
+  valid_subset: dev
   skip_invalid_size_inputs_valid_test: true
 
 distributed_training:
@@ -33,7 +34,7 @@ criterion:
 
 optimization:
   max_update: 1000000
-  lr: [0.005]
+  lr: [0.0002]
 
 optimizer:
   _name: adam
@@ -44,11 +45,11 @@ optimizer:
 
 lr_scheduler:
   _name: polynomial_decay
-  warmup_updates: 32000
+  warmup_updates: 25000
 
 model:
-  _name: wav2vec2
-#  _name: conformer_based_wav2vec2
+#  _name: wav2vec2
+  _name: conformer_based_wav2vec2
   is_mel_spectrograms: true
   quantize_targets: true
   extractor_mode: layer_norm
@@ -90,10 +91,10 @@ model:
   negatives_from_everywhere: false
   cross_sample_negatives: 0
   activation_dropout: 0
-  encoder_layers: 12
+  encoder_layers: 8
   encoder_embed_dim: 1024
   encoder_ffn_embed_dim: 4096
-  encoder_attention_heads: 16
+  encoder_attention_heads: 8
   input_feat_per_channel: 1
   feature_grad_mult: 1.0
   quantize_input: false
@@ -101,7 +102,7 @@ model:
   decoder_normalize_before: True
   encoder_normalize_before: True
   conv_kernel_sizes: 5,5
-  conv_channels: 1024
+  conv_channels: 512
   activation_fn: swish
   conv_feature_layers: '[(1024, 10, 5)] + [(1024, 3, 2)] * 4 + [(1024,2,2)] + [(1024,2,2)]'
   macaron_style: True
