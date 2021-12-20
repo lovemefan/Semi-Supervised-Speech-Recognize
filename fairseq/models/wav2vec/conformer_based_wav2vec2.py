@@ -157,10 +157,8 @@ class ConformerWav2vec2Encoder(Wav2Vec2Model):
     def __init__(self, cfg):
         super().__init__(cfg)
         del self.encoder
-        # embed_dim for conformerEncoder layer embedding dim
-        self.layers = nn.ModuleList(
-            [ConformerEncoderLayer(cfg) for _ in range(cfg.encoder_layers)]
-        )
+        del self.feature_extractor
+
         self.padding_idx = 1
         self.is_mel = getattr(cfg, "is_mel_spectrograms", False)
         if self.is_mel:
@@ -178,6 +176,10 @@ class ConformerWav2vec2Encoder(Wav2Vec2Model):
                 cfg.encoder_embed_dim,
                 [int(k) for k in cfg.conv_kernel_sizes.split(",")],
             )
+        # embed_dim for conformerEncoder layer embedding dim
+        self.layers = nn.ModuleList(
+            [ConformerEncoderLayer(cfg) for _ in range(cfg.encoder_layers)]
+        )
         self.attn_type = getattr(cfg, "encoder_attention_type", "selfattn")
         self.padding_idx = 1
         self.embed_positions = PositionalEmbedding(
