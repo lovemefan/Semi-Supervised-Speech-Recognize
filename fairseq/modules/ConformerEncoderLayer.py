@@ -212,7 +212,7 @@ class ConformerEncoderLayer(nn.Module):
                 pos_emb=pos_emb
             )
         else:
-            x, _ = self.self_attn(
+            x, attn = self.self_attn(
                 query=x,
                 key=x,
                 value=x,
@@ -249,4 +249,4 @@ class ConformerEncoderLayer(nn.Module):
         if self.conv_module is not None:
             x = self.final_norm(x)
 
-        return x
+        return x, attn
