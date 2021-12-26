@@ -103,6 +103,8 @@ class ConformerBasedWav2vec2Model(BaseFairseqModel):
         return encoder
 
 
+
+
 class Conv2dSubsampler(nn.Module):
     """Convolutional subsampler: a stack of 1D convolution (along temporal
     dimension) followed by non-linear activation via gated linear units
@@ -194,20 +196,21 @@ class ConformerWav2vec2Encoder(Wav2Vec2Model):
             p=cfg.dropout, module_name=self.__class__.__name__
         )
 
-    def extract_features(self, source, padding_mask, mask=False, layer=None):
-        res = self.forward(
-            source, padding_mask, mask=mask, features_only=True, layer=layer
-        )
-        return res
+
 
     def get_interactive_tokens_and_lengths(self, lines):
         n_frames = [p.shape[0] for p in lines]
         return lines, n_frames
 
+    def extract_features(self, source, padding_mask, mask=False, layer=None, mel_spectrograms=None):
+        res = self.forward(
+            source, padding_mask=padding_mask, mask=mask, features_only=True, layer=layer, mel_spectrograms=mel_spectrograms
+        )
+        return res
+
     def forward(self,
                 source,
-                src_lengths,
-                mel_spectrograms,
+                mel_spectrograms=None,
                 padding_mask=None,
                 mask=True,
                 features_only=False,
@@ -293,11 +296,12 @@ class ConformerWav2vec2Encoder(Wav2Vec2Model):
         # add emb into history
         if self.history is not None:
             self.history.add(x)
-
+        layer_results = []
         for layer in self.layers:
             if self.history is not None:
                 x = self.history.pop()
-            x = layer(x, encoder_padding_mask, pos_emb=positions)
+            x, z = layer(x, encoder_padding_mask, pos_emb=positions)
+            layer_results.append((x, z))
             if self.history is not None:
                 self.history.add(x)
 
@@ -312,6 +316,7 @@ class ConformerWav2vec2Encoder(Wav2Vec2Model):
                 "x": x,
                 "padding_mask": encoder_padding_mask,
                 "features": unmasked_features,
+                "layer_results": layer_results
             }
         if self.quantizer:
             q = self.quantizer(y, produce_targets=False)

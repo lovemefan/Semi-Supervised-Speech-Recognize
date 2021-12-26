@@ -390,13 +390,16 @@ class Wav2VecEncoder(FairseqEncoder):
         super().set_num_updates(num_updates)
         self.num_updates = num_updates
 
-    def forward(self, source, padding_mask, **kwargs):
+    def forward(self, source, padding_mask, mel_spectrograms=None, **kwargs):
 
         w2v_args = {
             "source": source,
+            'mel_spectrograms': mel_spectrograms,
             "padding_mask": padding_mask,
             "mask": self.apply_mask and self.training,
         }
+        # if mel_spectrograms:
+        #     w2v_args['mel_spectrograms'] = mel_spectrograms
 
         ft = self.freeze_finetune_updates <= self.num_updates
 
