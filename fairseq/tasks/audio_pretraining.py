@@ -139,7 +139,7 @@ class AudioPretrainingTask(FairseqTask):
         else:
             return {}
 
-    def load_dataset(self, split: str, epoch=1, task_cfg: FairseqDataclass = None, **kwargs):
+    def load_dataset(self, split: str, task_cfg: FairseqDataclass = None, epoch=1, **kwargs):
         data_path = self.cfg.data
         task_cfg = task_cfg or self.cfg
 

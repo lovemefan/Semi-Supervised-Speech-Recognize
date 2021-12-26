@@ -194,6 +194,12 @@ class ConformerWav2vec2Encoder(Wav2Vec2Model):
             p=cfg.dropout, module_name=self.__class__.__name__
         )
 
+    def extract_features(self, source, padding_mask, mask=False, layer=None):
+        res = self.forward(
+            source, padding_mask, mask=mask, features_only=True, layer=layer
+        )
+        return res
+
     def get_interactive_tokens_and_lengths(self, lines):
         n_frames = [p.shape[0] for p in lines]
         return lines, n_frames
