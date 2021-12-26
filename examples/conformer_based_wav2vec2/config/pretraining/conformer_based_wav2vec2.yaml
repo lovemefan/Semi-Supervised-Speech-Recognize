@@ -4,8 +4,8 @@ common:
   log_interval: 200
 
 checkpoint:
-  save_interval_updates: 25000
-  keep_interval_updates: 1
+  save_interval_updates: 2000
+  keep_interval_updates: 5
   no_epoch_checkpoints: true
 
 task:
