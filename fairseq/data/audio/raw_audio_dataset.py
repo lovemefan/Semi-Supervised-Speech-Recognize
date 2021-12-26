@@ -8,17 +8,19 @@ import logging
 import os
 import sys
 import io
+import wave
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 
+from .feature_transforms import CompositeAudioFeatureTransform
 from .. import FairseqDataset
 from ..data_utils import compute_mask_indices, get_buckets, get_bucketed_sizes
 from fairseq.data.audio.audio_utils import (
     parse_path,
     read_from_stored_zip,
-    is_sf_audio_data,
+    is_sf_audio_data, get_mel_spectrogram,
 )
 from fairseq.data.text_compressor import TextCompressor, TextCompressionLevel
 
@@ -129,14 +131,19 @@ class RawAudioDataset(FairseqDataset):
             return {}
 
         sources = [s["source"] for s in samples]
+        mel_spectrograms = [s["mel_spectrogram"] for s in samples]
         sizes = [len(s) for s in sources]
+        mel_sizes = [len(s[0]) for s in mel_spectrograms]
 
         if self.pad:
             target_size = min(max(sizes), self.max_sample_size)
+            target_mel_size = min(max(mel_sizes), self.max_sample_size)
         else:
             target_size = min(min(sizes), self.max_sample_size)
+            target_mel_size = min(min(mel_sizes), self.max_sample_size)
 
         collated_sources = sources[0].new_zeros(len(sources), target_size)
+        collated_mel = mel_spectrograms[0].new_zeros(len(sources), mel_spectrograms[0].shape[0], target_mel_size)
         padding_mask = (
             torch.BoolTensor(collated_sources.shape).fill_(False) if self.pad else None
         )
@@ -144,16 +151,21 @@ class RawAudioDataset(FairseqDataset):
             diff = size - target_size
             if diff == 0:
                 collated_sources[i] = source
+                collated_mel[i] = mel_spectrograms[i]
             elif diff < 0:
+                # todo handle mel
                 assert self.pad
                 collated_sources[i] = torch.cat(
                     [source, source.new_full((-diff,), 0.0)]
                 )
                 padding_mask[i, diff:] = True
             else:
+                start = np.random.randint(0, mel_sizes[i] - target_mel_size + 1)
+                end = target_mel_size + start
+                collated_mel[i] = mel_spectrograms[i][:, start:end]
                 collated_sources[i] = self.crop_to_max_size(source, target_size)
 
-        input = {"source": collated_sources}
+        input = {"source": collated_sources, "mel_spectrograms": collated_mel}
         out = {"id": torch.LongTensor([s["id"] for s in samples])}
         if self.pad:
             input["padding_mask"] = padding_mask
@@ -249,6 +261,7 @@ class FileAudioDataset(RawAudioDataset):
     def __init__(
         self,
         manifest_path,
+        is_mel: bool,
         sample_rate,
         max_sample_size=None,
         min_sample_size=0,
@@ -319,10 +332,13 @@ class FileAudioDataset(RawAudioDataset):
             path_or_fp = io.BytesIO(byte_data)
 
         wav, curr_sample_rate = sf.read(path_or_fp, dtype="float32")
+        mel_spectrogram = get_mel_spectrogram(wav, curr_sample_rate)
 
+        mel_spectrogram = torch.from_numpy(mel_spectrogram).float()
         feats = torch.from_numpy(wav).float()
+
         feats = self.postprocess(feats, curr_sample_rate)
-        return {"id": index, "source": feats}
+        return {"id": index, "source": feats, 'mel_spectrogram': mel_spectrogram}
 
 
 class BinarizedAudioDataset(RawAudioDataset):
